@@ -1,0 +1,444 @@
+
+0856 4766 2112
+
+install laravel -->
+    composer create-project laravel/laravel crud-image
+
+database set --> .env
+    DB_CONNECTION=mysql
+    DB_HOST=127.0.0.1
+    DB_PORT=3306
+    DB_DATABASE=crud-image
+    DB_USERNAME=root
+    DB_PASSWORD=
+
+create migration --->
+    php artisan make:migration create_products_table --create=products
+
+cari file tabel products di folder database/migrations --->
+    <?php
+
+    use Illuminate\Database\Migrations\Migration;
+    use Illuminate\Database\Schema\Blueprint;
+    use Illuminate\Support\Facades\Schema;
+
+    return new class extends Migration
+    {
+        /**
+        * Run the migrations.
+        *
+        * @return void
+        */
+        public function up(): void
+        {
+            Schema::create('products', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->text('detail');
+                $table->string('image');
+                $table->timestamps();
+            });
+        }
+
+        /**
+        * Reverse the migrations.
+        *
+        * @return void
+        */
+        public function down(): void
+        {
+            Schema::dropIfExists('products');
+        }
+    };
+
+Jalankan perintah migrate -->
+    php artisan migrate
+
+Add Controller and Model --->
+    php artisan make:controller ProductController --resource --model=Product
+
+ketik --->
+    yess
+
+cari file dan sesuaikan code nya app/Http/Controllers/ProductController.php -->
+        <?php
+
+    namespace App\Http\Controllers;
+
+    use App\Models\Product;
+    use Illuminate\Http\RedirectResponse;
+    use Illuminate\Http\Request;
+    use Illuminate\Http\Response;
+    use Illuminate\View\View;
+
+    class ProductController extends Controller
+    {
+        /**
+        * Display a listing of the resource.
+        *
+        * @return response()
+        */
+        public function index(): View
+        {
+            $products = Product::latest()->paginate(5);
+
+            return view('products.index',compact('products'))
+                        ->with('i', (request()->input('page', 1) - 1) * 5);
+        }
+
+        /**
+        * Show the form for creating a new resource.
+        */
+        public function create(): View
+        {
+            return view('products.create');
+        }
+
+        /**
+        * Store a newly created resource in storage.
+        */
+        public function store(Request $request): RedirectResponse
+        {
+            $request->validate([
+                'name' => 'required',
+                'detail' => 'required',
+                'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            ]);
+
+            $input = $request->all();
+
+            if ($image = $request->file('image')) {
+                $destinationPath = 'images/';
+                $profileImage = date('YmdHis') . "." . $image->getClientOriginalExtension();
+                $image->move($destinationPath, $profileImage);
+                $input['image'] = "$profileImage";
+            }
+
+            Product::create($input);
+
+            return redirect()->route('products.index')
+                            ->with('success','Product created successfully.');
+        }
+
+        /**
+        * Display the specified resource.
+        */
+        public function show(Product $product): View
+        {
+            return view('products.show',compact('product'));
+        }
+
+        /**
+        * Show the form for editing the specified resource.
+        */
+        public function edit(Product $product): View
+        {
+            return view('products.edit',compact('product'));
+        }
+
+        /**
+        * Update the specified resource in storage.
+        */
+        public function update(Request $request, Product $product): RedirectResponse
+        {
+            $request->validate([
+                'name' => 'required',
+                'detail' => 'required'
+            ]);
+
+            $input = $request->all();
+
+            if ($image = $request->file('image')) {
+                $destinationPath = 'images/';
+                $profileImage = date('YmdHis') . "." . $image->getClientOriginalExtension();
+                $image->move($destinationPath, $profileImage);
+                $input['image'] = "$profileImage";
+            }else{
+                unset($input['image']);
+            }
+
+            $product->update($input);
+
+            return redirect()->route('products.index')
+                            ->with('success','Product updated successfully');
+        }
+
+        /**
+        * Remove the specified resource from storage.
+        */
+        public function destroy(Product $product): RedirectResponse
+        {
+            $product->delete();
+
+            return redirect()->route('products.index')
+                            ->with('success','Product deleted successfully');
+        }
+    }
+
+app/Models/Product.php -->
+    <?php
+
+    namespace App\Models;
+
+    use Illuminate\Database\Eloquent\Factories\HasFactory;
+    use Illuminate\Database\Eloquent\Model;
+
+    class Product extends Model
+    {
+        use HasFactory;
+
+        protected $fillable = [
+            'name', 'detail', 'image'
+        ];
+    }
+
+
+Add Resource Route -->
+    <?php
+
+    use Illuminate\Support\Facades\Route;
+
+    use App\Http\Controllers\ProductController;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Web Routes
+    |--------------------------------------------------------------------------
+    |
+    | Here is where you can register web routes for your application. These
+    | routes are loaded by the RouteServiceProvider within a group which
+    | contains the "web" middleware group. Now create something great!
+    |
+    */
+
+    Route::resource('products', ProductController::class);
+
+Add Blade Files
+resources/views/products/layout.blade.php -->
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Laravel 10 CRUD with Image Upload Application - ItSolutionStuff.com</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+
+    <div class="container">
+        @yield('content')
+    </div>
+
+    </body>
+    </html>
+
+resources/views/products/index.blade.php --->
+    @extends('products.layout')
+
+    @section('content')
+        <div class="row">
+            <div class="col-lg-12 margin-tb">
+                <div class="pull-left">
+                    <h2>Laravel 10 CRUD with Image Upload Example from scratch - ItSolutionStuff.com</h2>
+                </div>
+                <div class="pull-right">
+                    <a class="btn btn-success" href="{{ route('products.create') }}"> Create New Product</a>
+                </div>
+            </div>
+        </div>
+
+        @if ($message = Session::get('success'))
+            <div class="alert alert-success">
+                <p>{{ $message }}</p>
+            </div>
+        @endif
+
+        <table class="table table-bordered">
+            <tr>
+                <th>No</th>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Details</th>
+                <th width="280px">Action</th>
+            </tr>
+            @foreach ($products as $product)
+            <tr>
+                <td>{{ ++$i }}</td>
+                <td><img src="/images/{{ $product->image }}" width="100px"></td>
+                <td>{{ $product->name }}</td>
+                <td>{{ $product->detail }}</td>
+                <td>
+                    <form action="{{ route('products.destroy',$product->id) }}" method="POST">
+
+                        <a class="btn btn-info" href="{{ route('products.show',$product->id) }}">Show</a>
+
+                        <a class="btn btn-primary" href="{{ route('products.edit',$product->id) }}">Edit</a>
+
+                        @csrf
+                        @method('DELETE')
+
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            @endforeach
+        </table>
+
+        {!! $products->links() !!}
+
+    @endsection
+
+resources/views/products/create.blade.php --->
+    @extends('products.layout')
+
+    @section('content')
+    <div class="row">
+        <div class="col-lg-12 margin-tb">
+            <div class="pull-left">
+                <h2>Add New Product</h2>
+            </div>
+            <div class="pull-right">
+                <a class="btn btn-primary" href="{{ route('products.index') }}"> Back</a>
+            </div>
+        </div>
+    </div>
+
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Whoops!</strong> There were some problems with your input.<br><br>
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Name:</strong>
+                    <input type="text" name="name" class="form-control" placeholder="Name">
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Detail:</strong>
+                    <textarea class="form-control" style="height:150px" name="detail" placeholder="Detail"></textarea>
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Image:</strong>
+                    <input type="file" name="image" class="form-control" placeholder="image">
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12 text-center">
+                    <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+        </div>
+
+    </form>
+    @endsection
+
+resources/views/products/edit.blade.php -->
+    @extends('products.layout')
+
+    @section('content')
+        <div class="row">
+            <div class="col-lg-12 margin-tb">
+                <div class="pull-left">
+                    <h2>Edit Product</h2>
+                </div>
+                <div class="pull-right">
+                    <a class="btn btn-primary" href="{{ route('products.index') }}"> Back</a>
+                </div>
+            </div>
+        </div>
+
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                <strong>Whoops!</strong> There were some problems with your input.<br><br>
+                <ul>
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <form action="{{ route('products.update',$product->id) }}" method="POST" enctype="multipart/form-data">
+            @csrf
+            @method('PUT')
+
+            <div class="row">
+                <div class="col-xs-12 col-sm-12 col-md-12">
+                    <div class="form-group">
+                        <strong>Name:</strong>
+                        <input type="text" name="name" value="{{ $product->name }}" class="form-control" placeholder="Name">
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-12 col-md-12">
+                    <div class="form-group">
+                        <strong>Detail:</strong>
+                        <textarea class="form-control" style="height:150px" name="detail" placeholder="Detail">{{ $product->detail }}</textarea>
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-12 col-md-12">
+                    <div class="form-group">
+                        <strong>Image:</strong>
+                        <input type="file" name="image" class="form-control" placeholder="image">
+                        <img src="/images/{{ $product->image }}" width="300px">
+                    </div>
+                </div>
+                <div class="col-xs-12 col-sm-12 col-md-12 text-center">
+                <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </div>
+
+        </form>
+    @endsection
+
+resources/views/products/show.blade.php
+    @extends('products.layout')
+
+    @section('content')
+        <div class="row">
+            <div class="col-lg-12 margin-tb">
+                <div class="pull-left">
+                    <h2> Show Product</h2>
+                </div>
+                <div class="pull-right">
+                    <a class="btn btn-primary" href="{{ route('products.index') }}"> Back</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Name:</strong>
+                    {{ $product->name }}
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Details:</strong>
+                    {{ $product->detail }}
+                </div>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-12">
+                <div class="form-group">
+                    <strong>Image:</strong>
+                    <img src="/images/{{ $product->image }}" width="500px">
+                </div>
+            </div>
+        </div>
+    @endsection
+
+Run Laravel App-->
+    php artisan serv
+
+Copy paste link aplikasi CRUD image dibwah ini ke browser
+    http://localhost:8000/products
